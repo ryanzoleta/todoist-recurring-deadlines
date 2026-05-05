@@ -1,0 +1,31 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "bun: test",
+      "type": "shell",
+      "command": "bun test",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "bun: typecheck",
+      "type": "shell",
+      "command": "bunx tsc --noEmit",
+      "group": "build",
+      "problemMatcher": "$tsc"
+    },
+    {
+      "label": "bun: poll",
+      "type": "shell",
+      "command": "bun run start poll",
+      "problemMatcher": []
+    },
+    {
+      "label": "bun: poll full",
+      "type": "shell",
+      "command": "bun run start poll --full",
+      "problemMatcher": []
+    }
+  ]
+}

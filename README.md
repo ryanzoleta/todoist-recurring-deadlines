@@ -86,6 +86,26 @@ docker run \
 
 The container defaults to `daemon` mode.
 
+## VS Code / Cursor Debugging
+
+This repo includes launch profiles in `.vscode/launch.json`.
+
+Use the Run and Debug panel to start:
+
+- `Debug CLI: poll`
+- `Debug CLI: poll --full`
+- `Debug CLI: reconcile`
+- `Debug CLI: daemon`
+- `Debug CLI: setup`
+- `Debug Current Bun Test File`
+
+You can also run tasks from the command palette:
+
+- `bun: test`
+- `bun: typecheck`
+- `bun: poll`
+- `bun: poll full`
+
 ## Design
 
 See `docs/design-v1.md` for the v1 architecture and implementation decisions.
