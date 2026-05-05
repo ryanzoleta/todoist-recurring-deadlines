@@ -106,6 +106,16 @@ You can also run tasks from the command palette:
 - `bun: poll`
 - `bun: poll full`
 
+## Integration Tests
+
+Integration tests create, update, and delete real Todoist tasks. They run by default and fail if no Todoist token/config is found.
+
+After running `setup`, run them with:
+
+```sh
+bun test tests/integration/todoist.integration.test.ts
+```
+
 ## Design
 
 See `docs/design-v1.md` for the v1 architecture and implementation decisions.

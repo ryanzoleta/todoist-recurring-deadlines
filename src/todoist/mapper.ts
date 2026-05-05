@@ -1,7 +1,12 @@
 import type { Task } from "@doist/todoist-api-typescript";
 import type { CoreTask } from "../core/types.ts";
 
-export function mapTask(task: Task): CoreTask {
+type TaskLike = Task & {
+  due?: (Task["due"] & { is_recurring?: boolean }) | null;
+  is_deleted?: boolean;
+};
+
+export function mapTask(task: TaskLike): CoreTask {
   return {
     id: task.id,
     labels: task.labels,
@@ -9,12 +14,12 @@ export function mapTask(task: Task): CoreTask {
       ? {
           date: task.due.date,
           datetime: task.due.datetime,
-          isRecurring: task.due.isRecurring,
+          isRecurring: task.due.isRecurring ?? task.due.is_recurring ?? false,
           string: task.due.string,
         }
       : null,
     deadline: task.deadline ? { date: task.deadline.date } : null,
     checked: task.checked,
-    isDeleted: task.isDeleted,
+    isDeleted: task.isDeleted ?? task.is_deleted,
   };
 }
