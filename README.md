@@ -6,9 +6,19 @@ Todoist can advance a recurring due date when a task is completed, but deadlines
 
 V1 is CLI-only and self-hosted.
 
-## Status
+## Quick Start
 
-Early design/implementation stage.
+```sh
+bun install
+bun run start setup
+bun run start daemon
+```
+
+You can also run one poll cycle:
+
+```sh
+bun run start poll
+```
 
 ## How It Works
 
@@ -28,12 +38,14 @@ Date-only tasks are supported. Tasks with due times or deadline times are ignore
 ```sh
 todoist-recurring-deadlines setup
 todoist-recurring-deadlines poll
+todoist-recurring-deadlines poll --full
 todoist-recurring-deadlines daemon
 todoist-recurring-deadlines reconcile
 ```
 
 - `setup`: save and validate your Todoist API token, then create the `recurring-deadline` label if needed.
 - `poll`: run one incremental sync cycle.
+- `poll --full`: force a full Sync API scan and save the returned sync token.
 - `daemon`: keep running and poll every 5 minutes.
 - `reconcile`: run a full repair scan.
 
@@ -54,6 +66,25 @@ TODOIST_API_TOKEN=...
 ```
 
 Environment variables override saved config.
+
+## Docker
+
+Build the image:
+
+```sh
+docker build -t todoist-recurring-deadlines .
+```
+
+Run with an environment token:
+
+```sh
+docker run \
+  -e TODOIST_API_TOKEN=... \
+  -v todoist-recurring-deadlines:/data \
+  todoist-recurring-deadlines
+```
+
+The container defaults to `daemon` mode.
 
 ## Design
 
