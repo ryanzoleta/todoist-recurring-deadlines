@@ -1,4 +1,4 @@
-import { ensureParentDirectory } from "../config/config.ts";
+import { ensureParentDirectory } from "../config/config";
 
 const STALE_LOCK_MS = 30 * 60 * 1000;
 

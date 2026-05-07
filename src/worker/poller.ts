@@ -1,11 +1,10 @@
-import { repairDeadline } from "../core/repair.ts";
-import { mapTask } from "../todoist/mapper.ts";
-import { InvalidSyncTokenError } from "../todoist/sync.ts";
-import { loadState, shouldRunFullReconcile, writeStateAtomic, type AppState } from "../state/file-state-store.ts";
-import { acquireLock } from "../state/lock-file.ts";
-import type { AppConfig } from "../config/config.ts";
-import type { CoreTask } from "../core/types.ts";
-import type { TodoistClient } from "../todoist/client.ts";
+import { repairDeadline } from "../core/repair";
+import { mapTask } from "../todoist/mapper";
+import { InvalidSyncTokenError } from "../todoist/sync";
+import { shouldRunFullReconcile } from "../state/file-state-store";
+import type { AppState, StateStore } from "../state/state-store";
+import type { CoreTask } from "../core/types";
+import type { TodoistClient } from "../todoist/client";
 
 export interface RunSummary {
   scanned: number;
@@ -13,33 +12,55 @@ export interface RunSummary {
   skipped: number;
 }
 
-export interface PollOptions {
-  forceFullSync?: boolean;
+export interface RepairEvent {
+  taskId: string;
+  previousDeadline: string;
+  deadline: string;
 }
 
-export async function runPoll(config: AppConfig, client: TodoistClient, options: PollOptions = {}): Promise<RunSummary> {
-  return await withLock(config.lockPath, async () => {
-    let state = await loadState(config.statePath);
+export type RepairListener = (event: RepairEvent) => Promise<void>;
+
+export interface PollOptions {
+  forceFullSync?: boolean;
+  fullReconcileIntervalHours: number;
+  optInLabel: string;
+  onRepair?: RepairListener;
+}
+
+export interface ReconcileOptions {
+  optInLabel: string;
+  onRepair?: RepairListener;
+}
+
+const ZERO_SUMMARY: RunSummary = { scanned: 0, updated: 0, skipped: 0 };
+
+export async function runPoll(
+  store: StateStore,
+  client: TodoistClient,
+  options: PollOptions,
+): Promise<RunSummary> {
+  const result = await store.withLock(async () => {
+    let state = await store.load();
     const syncToken = options.forceFullSync ? "*" : (state.syncToken ?? "*");
 
     try {
       const response = await client.syncItems(syncToken);
-      const summary = await processTasks(response.items.map(mapTask), client);
+      const summary = await processTasks(response.items.map(mapTask), client, options.onRepair);
       state = { ...state, syncToken: response.syncToken, lastSyncAt: new Date().toISOString() };
 
-      if (!options.forceFullSync && shouldRunFullReconcile(state, config.fullReconcileIntervalHours)) {
-        const fullSummary = await runFullReconcileWithoutLock(config, client, state);
+      if (!options.forceFullSync && shouldRunFullReconcile(state, options.fullReconcileIntervalHours)) {
+        const fullSummary = await runFullReconcileWithoutLock(store, client, state, options);
         return combineSummaries(summary, fullSummary);
       }
 
-      await writeStateAtomic(config.statePath, state);
+      await store.save(state);
       return summary;
     } catch (error) {
       if (!(error instanceof InvalidSyncTokenError)) throw error;
 
       const response = await client.syncItems("*");
-      const summary = await processTasks(response.items.map(mapTask), client);
-      await writeStateAtomic(config.statePath, {
+      const summary = await processTasks(response.items.map(mapTask), client, options.onRepair);
+      await store.save({
         ...state,
         syncToken: response.syncToken,
         lastSyncAt: new Date().toISOString(),
@@ -47,27 +68,40 @@ export async function runPoll(config: AppConfig, client: TodoistClient, options:
       return summary;
     }
   });
+
+  return result ?? ZERO_SUMMARY;
 }
 
-export async function runFullReconcile(config: AppConfig, client: TodoistClient): Promise<RunSummary> {
-  return await withLock(config.lockPath, async () => {
-    const state = await loadState(config.statePath);
-    return await runFullReconcileWithoutLock(config, client, state);
+export async function runFullReconcile(
+  store: StateStore,
+  client: TodoistClient,
+  options: ReconcileOptions,
+): Promise<RunSummary> {
+  const result = await store.withLock(async () => {
+    const state = await store.load();
+    return await runFullReconcileWithoutLock(store, client, state, options);
   });
+
+  return result ?? ZERO_SUMMARY;
 }
 
 async function runFullReconcileWithoutLock(
-  config: AppConfig,
+  store: StateStore,
   client: TodoistClient,
   state: AppState,
+  options: ReconcileOptions,
 ): Promise<RunSummary> {
-  const tasks = await client.getActiveTasksByLabel(config.optInLabel);
-  const summary = await processTasks(tasks, client);
-  await writeStateAtomic(config.statePath, { ...state, lastFullReconcileAt: new Date().toISOString() });
+  const tasks = await client.getActiveTasksByLabel(options.optInLabel);
+  const summary = await processTasks(tasks, client, options.onRepair);
+  await store.save({ ...state, lastFullReconcileAt: new Date().toISOString() });
   return summary;
 }
 
-async function processTasks(tasks: CoreTask[], client: TodoistClient): Promise<RunSummary> {
+async function processTasks(
+  tasks: CoreTask[],
+  client: TodoistClient,
+  onRepair: RepairListener | undefined,
+): Promise<RunSummary> {
   const summary: RunSummary = { scanned: 0, updated: 0, skipped: 0 };
 
   for (const task of tasks) {
@@ -76,6 +110,13 @@ async function processTasks(tasks: CoreTask[], client: TodoistClient): Promise<R
 
     if (result.action === "update") {
       await client.updateDeadline(result.taskId, result.deadline);
+      if (onRepair) {
+        await onRepair({
+          taskId: result.taskId,
+          previousDeadline: result.previousDeadline,
+          deadline: result.deadline,
+        });
+      }
       summary.updated += 1;
     } else {
       summary.skipped += 1;
@@ -83,17 +124,6 @@ async function processTasks(tasks: CoreTask[], client: TodoistClient): Promise<R
   }
 
   return summary;
-}
-
-async function withLock(path: string, fn: () => Promise<RunSummary>): Promise<RunSummary> {
-  const lock = await acquireLock(path);
-  if (!lock.acquired) return { scanned: 0, updated: 0, skipped: 0 };
-
-  try {
-    return await fn();
-  } finally {
-    await lock.release();
-  }
 }
 
 function combineSummaries(left: RunSummary, right: RunSummary): RunSummary {

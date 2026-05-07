@@ -1,10 +1,9 @@
-import { ensureParentDirectory } from "../config/config.ts";
+import { ensureParentDirectory } from "../config/config";
+import type { AppState } from "./app-state";
+import type { StateStore } from "./state-store";
+import { acquireLock } from "./lock-file";
 
-export interface AppState {
-  syncToken?: string;
-  lastSyncAt?: string;
-  lastFullReconcileAt?: string;
-}
+export type { AppState };
 
 export async function loadState(path: string): Promise<AppState> {
   const file = Bun.file(path);
@@ -24,4 +23,20 @@ export function shouldRunFullReconcile(state: AppState, intervalHours: number, n
   const last = new Date(state.lastFullReconcileAt).getTime();
   if (!Number.isFinite(last)) return true;
   return now.getTime() - last >= intervalHours * 60 * 60 * 1000;
+}
+
+export function fileStateStore(opts: { statePath: string; lockPath: string }): StateStore {
+  return {
+    load: () => loadState(opts.statePath),
+    save: (state) => writeStateAtomic(opts.statePath, state),
+    withLock: async <T>(fn: () => Promise<T>): Promise<T | null> => {
+      const lock = await acquireLock(opts.lockPath);
+      if (!lock.acquired) return null;
+      try {
+        return await fn();
+      } finally {
+        await lock.release();
+      }
+    },
+  };
 }

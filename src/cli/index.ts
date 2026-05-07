@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
-import { parseArgs } from "./args.ts";
-import { runCommand } from "./commands.ts";
+import { parseArgs } from "./args";
+import { runCommand } from "./commands";
 
 try {
   await runCommand(parseArgs(Bun.argv.slice(2)));

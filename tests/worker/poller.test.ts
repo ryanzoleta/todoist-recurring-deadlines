@@ -2,15 +2,15 @@ import { describe, expect, test } from "bun:test";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { AppConfig } from "../../src/config/config.ts";
-import type { TodoistClient } from "../../src/todoist/client.ts";
-import { loadState } from "../../src/state/file-state-store.ts";
-import { runPoll } from "../../src/worker/poller.ts";
+import type { TodoistClient } from "../../src/todoist/client";
+import { fileStateStore, loadState } from "../../src/state/file-state-store";
+import { runPoll } from "../../src/worker/poller";
 
 describe("runPoll", () => {
   test("forceFullSync uses sync_token=* and saves returned token", async () => {
     const dir = await mkdtemp(join(tmpdir(), "trd-poller-"));
     const statePath = join(dir, "state.json");
+    const lockPath = join(dir, "poller.lock");
     const requestedTokens: string[] = [];
     const client: TodoistClient = {
       validateToken: async () => {},
@@ -23,22 +23,14 @@ describe("runPoll", () => {
       getActiveTasksByLabel: async () => [],
     };
 
-    const summary = await runPoll(configFor(dir, statePath), client, { forceFullSync: true });
+    const summary = await runPoll(fileStateStore({ statePath, lockPath }), client, {
+      forceFullSync: true,
+      fullReconcileIntervalHours: 24,
+      optInLabel: "recurring-deadline",
+    });
 
     expect(requestedTokens).toEqual(["*"]);
     expect(await loadState(statePath)).toMatchObject({ syncToken: "fresh-token" });
     expect(summary).toEqual({ scanned: 0, updated: 0, skipped: 0 });
   });
 });
-
-function configFor(dir: string, statePath: string): AppConfig {
-  return {
-    todoistApiToken: "token",
-    optInLabel: "recurring-deadline",
-    pollIntervalSeconds: 300,
-    fullReconcileIntervalHours: 24,
-    configPath: join(dir, "config.json"),
-    statePath,
-    lockPath: join(dir, "poller.lock"),
-  };
-}

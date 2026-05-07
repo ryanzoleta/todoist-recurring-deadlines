@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { repairDeadline } from "../../src/core/repair.ts";
-import type { CoreTask } from "../../src/core/types.ts";
+import { repairDeadline } from "../../src/core/repair";
+import type { CoreTask } from "../../src/core/types";
 
 function task(overrides: Partial<CoreTask> = {}): CoreTask {
   return {

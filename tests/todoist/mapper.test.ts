@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mapTask } from "../../src/todoist/mapper.ts";
+import { mapTask } from "../../src/todoist/mapper";
 
 describe("mapTask", () => {
   test("normalizes Sync API snake_case recurring due fields", () => {

@@ -1,6 +1,6 @@
-import { isDateOnly } from "./date.ts";
-import { parseRecurrenceInterval } from "./recurrence.ts";
-import { OPT_IN_LABEL, type CoreTask, type EligibilityResult } from "./types.ts";
+import { isDateOnly } from "./date";
+import { parseRecurrenceInterval } from "./recurrence";
+import { OPT_IN_LABEL, type CoreTask, type EligibilityResult } from "./types";
 
 export function checkEligibility(task: CoreTask): EligibilityResult {
   if (task.isDeleted) return { eligible: false, reason: "task is deleted" };

@@ -3,12 +3,12 @@ import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { AppConfig } from "../../src/config/config.ts";
-import { loadConfig } from "../../src/config/config.ts";
-import { OPT_IN_LABEL } from "../../src/core/types.ts";
-import { loadState } from "../../src/state/file-state-store.ts";
-import { SdkTodoistClient } from "../../src/todoist/client.ts";
-import { runFullReconcile, runPoll } from "../../src/worker/poller.ts";
+import type { AppConfig } from "../../src/config/config";
+import { loadConfig } from "../../src/config/config";
+import { OPT_IN_LABEL } from "../../src/core/types";
+import { fileStateStore, loadState } from "../../src/state/file-state-store";
+import { SdkTodoistClient } from "../../src/todoist/client";
+import { runFullReconcile, runPoll } from "../../src/worker/poller";
 
 const createdTaskIds: string[] = [];
 
@@ -45,7 +45,11 @@ describe("Todoist integration", () => {
 
     await Bun.sleep(2_000);
 
-    const summary = await runPoll(config, client, { forceFullSync: true });
+    const summary = await runPoll(storeFor(config), client, {
+      forceFullSync: true,
+      fullReconcileIntervalHours: config.fullReconcileIntervalHours,
+      optInLabel: config.optInLabel,
+    });
     const repairedTask = await api.getTask(staleTask.id);
     const repairedDates = taskDates(repairedTask);
 
@@ -57,14 +61,21 @@ describe("Todoist integration", () => {
 
   test("incremental poll repairs a changed active stale recurring task using the saved sync token", async () => {
     const config = await isolatedConfig();
-    await runPoll(config, client, { forceFullSync: true });
+    await runPoll(storeFor(config), client, {
+      forceFullSync: true,
+      fullReconcileIntervalHours: config.fullReconcileIntervalHours,
+      optInLabel: config.optInLabel,
+    });
     const initialState = await loadState(config.statePath);
     const staleTask = await createStaleRecurringTask("incremental-poll");
     const staleDates = taskDates(staleTask);
 
     expect(staleDates.deadline < staleDates.due).toBe(true);
 
-    const summary = await runPoll(config, client);
+    const summary = await runPoll(storeFor(config), client, {
+      fullReconcileIntervalHours: config.fullReconcileIntervalHours,
+      optInLabel: config.optInLabel,
+    });
     const repairedTask = await api.getTask(staleTask.id);
     const repairedDates = taskDates(repairedTask);
     const nextState = await loadState(config.statePath);
@@ -78,14 +89,18 @@ describe("Todoist integration", () => {
 
   test("reconcile repairs an active labelled task without replacing the sync token", async () => {
     const config = await isolatedConfig();
-    await runPoll(config, client, { forceFullSync: true });
+    await runPoll(storeFor(config), client, {
+      forceFullSync: true,
+      fullReconcileIntervalHours: config.fullReconcileIntervalHours,
+      optInLabel: config.optInLabel,
+    });
     const stateBeforeReconcile = await loadState(config.statePath);
     const staleTask = await createStaleRecurringTask("reconcile");
     const staleDates = taskDates(staleTask);
 
     expect(staleDates.deadline < staleDates.due).toBe(true);
 
-    const summary = await runFullReconcile(config, client);
+    const summary = await runFullReconcile(storeFor(config), client, { optInLabel: config.optInLabel });
     const repairedTask = await api.getTask(staleTask.id);
     const repairedDates = taskDates(repairedTask);
     const stateAfterReconcile = await loadState(config.statePath);
@@ -108,6 +123,10 @@ async function createStaleRecurringTask(testName: string): Promise<Task> {
   if (!task.due) throw new Error(`Test task ${task.id} is missing due date after creation`);
   const staleDeadline = addMonthsClamped(task.due.date, -1);
   return await api.updateTask(task.id, { deadlineDate: staleDeadline });
+}
+
+function storeFor(config: AppConfig) {
+  return fileStateStore({ statePath: config.statePath, lockPath: config.lockPath });
 }
 
 async function isolatedConfig(): Promise<AppConfig> {

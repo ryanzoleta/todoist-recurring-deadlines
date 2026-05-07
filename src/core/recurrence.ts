@@ -1,5 +1,5 @@
-import { addDays, addMonthsClamped, addYearsClamped } from "./date.ts";
-import type { RecurrenceInterval } from "./types.ts";
+import { addDays, addMonthsClamped, addYearsClamped } from "./date";
+import type { RecurrenceInterval } from "./types";
 
 export function parseRecurrenceInterval(dueString: string): RecurrenceInterval | null {
   const normalized = dueString.trim().toLowerCase();

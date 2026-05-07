@@ -1,10 +1,11 @@
 import { input, select } from "@inquirer/prompts";
-import { loadConfig } from "../config/config.ts";
-import { runSetup } from "../config/setup.ts";
-import { SdkTodoistClient } from "../todoist/client.ts";
-import { runDaemon } from "../worker/daemon.ts";
-import { runFullReconcile, runPoll, type RunSummary } from "../worker/poller.ts";
-import { stringFlag, type ParsedArgs } from "./args.ts";
+import { loadConfig, type AppConfig } from "../config/config";
+import { runSetup } from "../config/setup";
+import { fileStateStore } from "../state/file-state-store";
+import { SdkTodoistClient } from "../todoist/client";
+import { runDaemon } from "../worker/daemon";
+import { runFullReconcile, runPoll, type RunSummary } from "../worker/poller";
+import { stringFlag, type ParsedArgs } from "./args";
 
 export async function runCommand(parsed: ParsedArgs): Promise<void> {
   switch (parsed.command) {
@@ -37,20 +38,28 @@ async function setupCommand(parsed: ParsedArgs): Promise<void> {
 
 async function pollCommand(parsed: ParsedArgs): Promise<void> {
   const config = await loadConfig();
-  const summary = await runPoll(config, new SdkTodoistClient(config.todoistApiToken), {
+  const summary = await runPoll(storeFor(config), new SdkTodoistClient(config.todoistApiToken), {
     forceFullSync: parsed.flags.full === true,
+    fullReconcileIntervalHours: config.fullReconcileIntervalHours,
+    optInLabel: config.optInLabel,
   });
   printSummary("Poll complete", summary);
 }
 
 async function daemonCommand(): Promise<void> {
   const config = await loadConfig();
-  await runDaemon(config, new SdkTodoistClient(config.todoistApiToken));
+  await runDaemon(storeFor(config), new SdkTodoistClient(config.todoistApiToken), {
+    pollIntervalSeconds: config.pollIntervalSeconds,
+    fullReconcileIntervalHours: config.fullReconcileIntervalHours,
+    optInLabel: config.optInLabel,
+  });
 }
 
 async function reconcileCommand(): Promise<void> {
   const config = await loadConfig();
-  const summary = await runFullReconcile(config, new SdkTodoistClient(config.todoistApiToken));
+  const summary = await runFullReconcile(storeFor(config), new SdkTodoistClient(config.todoistApiToken), {
+    optInLabel: config.optInLabel,
+  });
   printSummary("Reconcile complete", summary);
 }
 
@@ -72,6 +81,10 @@ async function interactiveCommand(): Promise<void> {
   });
 
   await runCommand({ command, flags: {} });
+}
+
+function storeFor(config: AppConfig) {
+  return fileStateStore({ statePath: config.statePath, lockPath: config.lockPath });
 }
 
 function printSummary(prefix: string, summary: RunSummary): void {

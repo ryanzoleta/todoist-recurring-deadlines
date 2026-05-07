@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { syncItems } from "../../src/todoist/sync.ts";
+import { syncItems } from "../../src/todoist/sync";
 
 const originalFetch = globalThis.fetch;
 

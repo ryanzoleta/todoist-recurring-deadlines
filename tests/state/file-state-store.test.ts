@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadState, shouldRunFullReconcile, writeStateAtomic } from "../../src/state/file-state-store.ts";
+import { loadState, shouldRunFullReconcile, writeStateAtomic } from "../../src/state/file-state-store";
 
 describe("file state store", () => {
   test("writes and reads state", async () => {

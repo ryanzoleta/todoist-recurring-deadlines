@@ -13,6 +13,13 @@ export class InvalidSyncTokenError extends Error {
   }
 }
 
+export class TodoistAuthError extends Error {
+  constructor(public readonly status: number, message = `Todoist authentication failed (${status})`) {
+    super(message);
+    this.name = "TodoistAuthError";
+  }
+}
+
 export async function syncItems(apiToken: string, syncToken: string): Promise<SyncResponse> {
   const body = new URLSearchParams({
     sync_token: syncToken,
@@ -39,6 +46,9 @@ export async function syncItems(apiToken: string, syncToken: string): Promise<Sy
   };
 
   if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw new TodoistAuthError(response.status);
+    }
     if (!payload) {
       throw new Error(`Todoist Sync API failed: ${response.status} ${response.statusText}: ${responseText.slice(0, 500)}`);
     }

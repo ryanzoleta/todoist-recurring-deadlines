@@ -1,8 +1,8 @@
 import { TodoistApi, type Task } from "@doist/todoist-api-typescript";
-import { OPT_IN_LABEL } from "../core/types.ts";
-import { mapTask } from "./mapper.ts";
-import { syncItems, type SyncResponse } from "./sync.ts";
-import type { CoreTask } from "../core/types.ts";
+import { OPT_IN_LABEL } from "../core/types";
+import { mapTask } from "./mapper";
+import { syncItems, type SyncResponse } from "./sync";
+import type { CoreTask } from "../core/types";
 
 export interface TodoistClient {
   validateToken(): Promise<void>;

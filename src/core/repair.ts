@@ -1,7 +1,7 @@
-import { compareDateOnly } from "./date.ts";
-import { checkEligibility } from "./eligibility.ts";
-import { advanceDate } from "./recurrence.ts";
-import type { CoreTask, RepairResult } from "./types.ts";
+import { compareDateOnly } from "./date";
+import { checkEligibility } from "./eligibility";
+import { advanceDate } from "./recurrence";
+import type { CoreTask, RepairResult } from "./types";
 
 const MAX_ADVANCE_ITERATIONS = 500;
 

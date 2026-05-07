@@ -1,5 +1,5 @@
 import type { Task } from "@doist/todoist-api-typescript";
-import type { CoreTask } from "../core/types.ts";
+import type { CoreTask } from "../core/types";
 
 type TaskLike = Task & {
   due?: (Task["due"] & { is_recurring?: boolean }) | null;

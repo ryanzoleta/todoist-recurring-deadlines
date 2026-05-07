@@ -1,16 +1,24 @@
-import type { AppConfig } from "../config/config.ts";
-import type { TodoistClient } from "../todoist/client.ts";
-import { runPoll } from "./poller.ts";
+import type { StateStore } from "../state/state-store";
+import type { TodoistClient } from "../todoist/client";
+import { runPoll, type PollOptions } from "./poller";
 
-export async function runDaemon(config: AppConfig, client: TodoistClient): Promise<never> {
+export interface DaemonOptions extends Omit<PollOptions, "forceFullSync"> {
+  pollIntervalSeconds: number;
+}
+
+export async function runDaemon(
+  store: StateStore,
+  client: TodoistClient,
+  options: DaemonOptions,
+): Promise<never> {
   while (true) {
     try {
-      const summary = await runPoll(config, client);
+      const summary = await runPoll(store, client, options);
       console.log(`poll complete: scanned=${summary.scanned} updated=${summary.updated} skipped=${summary.skipped}`);
     } catch (error) {
       console.error(error instanceof Error ? error.message : error);
     }
 
-    await Bun.sleep(config.pollIntervalSeconds * 1000);
+    await Bun.sleep(options.pollIntervalSeconds * 1000);
   }
 }

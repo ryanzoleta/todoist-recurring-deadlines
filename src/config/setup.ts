@@ -1,6 +1,6 @@
-import { OPT_IN_LABEL } from "../core/types.ts";
-import { defaultPaths, writeSavedConfig } from "./config.ts";
-import type { TodoistClient } from "../todoist/client.ts";
+import { OPT_IN_LABEL } from "../core/types";
+import { defaultPaths, writeSavedConfig } from "./config";
+import type { TodoistClient } from "../todoist/client";
 
 export interface SetupOptions {
   token: string;
